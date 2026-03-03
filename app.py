@@ -17,11 +17,12 @@ st.set_page_config(page_title="Attendance System", layout="wide")
 # =============================
 
 if not firebase_admin._apps:
-    firebase_dict = json.loads(st.secrets["firebase"])
-    cred = credentials.Certificate(firebase_dict)
+    cred = credentials.Certificate(dict(st.secrets["firebase"]))
     firebase_admin.initialize_app(cred)
 
 db = firestore.client()
+
+st.success("Firebase connected successfully!")
 
 # =============================
 # LOGIN
