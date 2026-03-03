@@ -16,9 +16,9 @@ st.set_page_config(page_title="Attendance System", layout="wide")
 # FIREBASE INIT (STREAMLIT CLOUD SAFE)
 # =============================
 if not firebase_admin._apps:
-    firebase_dict = json.loads(st.secrets["firebase"])
-    cred = credentials.Certificate(firebase_dict)
+    cred = credentials.Certificate(st.secrets["firebase"])
     firebase_admin.initialize_app(cred)
+
 
 db = firestore.client()
 
