@@ -5,7 +5,6 @@ from firebase_admin import credentials, firestore
 import base64
 import pandas as pd
 from io import BytesIO
-import json
 
 # =============================
 # CONFIG
@@ -13,16 +12,19 @@ import json
 st.set_page_config(page_title="Attendance System", layout="wide")
 
 # =============================
-# FIREBASE INIT (STREAMLIT CLOUD SAFE)
+# FIREBASE INIT (SAFE VERSION)
 # =============================
+try:
+    if not firebase_admin._apps:
+        cred = credentials.Certificate(dict(st.secrets["firebase"]))
+        firebase_admin.initialize_app(cred)
 
-if not firebase_admin._apps:
-    cred = credentials.Certificate(dict(st.secrets["firebase"]))
-    firebase_admin.initialize_app(cred)
+    db = firestore.client()
 
-db = firestore.client()
-
-st.success("Firebase connected successfully!")
+except Exception as e:
+    st.error("❌ Firebase initialization failed")
+    st.error(e)
+    st.stop()
 
 # =============================
 # LOGIN
@@ -83,10 +85,10 @@ if menu == "Attendance":
         current_time = now.time()
 
         # ===== CHẶN CHECK TRÙNG =====
-        existing_docs = db.collection("attendance")\
-            .where("Username", "==", st.session_state.username)\
-            .where("Date", "==", today_str)\
-            .where("Action", "==", action)\
+        existing_docs = db.collection("attendance") \
+            .where("Username", "==", st.session_state.username) \
+            .where("Date", "==", today_str) \
+            .where("Action", "==", action) \
             .stream()
 
         if list(existing_docs):
@@ -126,7 +128,7 @@ if menu == "Attendance":
 # =============================
 # DASHBOARD PAGE
 # =============================
-if menu == "Dashboard":
+elif menu == "Dashboard":
 
     st.title("📊 Dashboard - Today")
 
@@ -173,7 +175,7 @@ if menu == "Dashboard":
 # =============================
 # WEEKLY REPORT PAGE
 # =============================
-if menu == "Weekly Report":
+elif menu == "Weekly Report":
 
     st.title("📄 Weekly Attendance Report")
 
@@ -202,7 +204,6 @@ if menu == "Weekly Report":
 
         df = pd.DataFrame(records)
 
-        # 🔥 FIX TIMEZONE ERROR
         if "Timestamp" in df.columns:
             df["Timestamp"] = pd.to_datetime(df["Timestamp"]).dt.tz_localize(None)
 
