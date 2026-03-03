@@ -5,6 +5,7 @@ from firebase_admin import credentials, firestore
 import base64
 import pandas as pd
 from io import BytesIO
+import json
 
 # =============================
 # CONFIG
@@ -12,14 +13,15 @@ from io import BytesIO
 st.set_page_config(page_title="Attendance System", layout="wide")
 
 # =============================
-# FIREBASE INIT (KHÔNG STORAGE)
+# FIREBASE INIT (STREAMLIT CLOUD SAFE)
 # =============================
 if not firebase_admin._apps:
     firebase_dict = json.loads(st.secrets["firebase"])
     cred = credentials.Certificate(firebase_dict)
     firebase_admin.initialize_app(cred)
-    
+
 db = firestore.client()
+
 # =============================
 # LOGIN
 # =============================
@@ -78,9 +80,7 @@ if menu == "Attendance":
         today_str = now.strftime("%Y-%m-%d")
         current_time = now.time()
 
-        # =============================
-        # CHẶN CHECK TRÙNG
-        # =============================
+        # ===== CHẶN CHECK TRÙNG =====
         existing_docs = db.collection("attendance")\
             .where("Username", "==", st.session_state.username)\
             .where("Date", "==", today_str)\
@@ -91,9 +91,7 @@ if menu == "Attendance":
             st.error(f"You already did {action} today!")
             st.stop()
 
-        # =============================
-        # VALIDATE GIỜ
-        # =============================
+        # ===== VALIDATE GIỜ =====
         if action == "Check-in" and current_time > time(8, 15):
             if late_reason.strip() == "" or checker == "":
                 st.error("Late check-in! Must fill reason and select checker.")
@@ -104,15 +102,11 @@ if menu == "Attendance":
                 st.error("Early checkout! Must fill reason and select checker.")
                 st.stop()
 
-        # =============================
-        # ENCODE ẢNH BASE64
-        # =============================
+        # ===== ENCODE ẢNH BASE64 =====
         image_bytes = image.getvalue()
         image_base64 = base64.b64encode(image_bytes).decode("utf-8")
 
-        # =============================
-        # LƯU FIRESTORE
-        # =============================
+        # ===== LƯU FIRESTORE =====
         db.collection("attendance").add({
             "Username": st.session_state.username,
             "Action": action,
@@ -136,18 +130,13 @@ if menu == "Dashboard":
 
     today_str = datetime.now().strftime("%Y-%m-%d")
 
-    # ❌ BỎ order_by để tránh cần index
     docs = db.collection("attendance") \
         .where("Date", "==", today_str) \
         .stream()
 
-    # ✅ Sort bằng Python thay vì Firestore
     records = [doc.to_dict() for doc in docs]
-
-    # Loại bỏ record chưa có Timestamp (nếu có)
     records = [r for r in records if r.get("Timestamp") is not None]
 
-    # Sort mới nhất lên trên
     records = sorted(
         records,
         key=lambda x: x["Timestamp"],
@@ -177,7 +166,8 @@ if menu == "Dashboard":
                 image_bytes = base64.b64decode(row["ImageBase64"])
                 st.image(image_bytes, width=150)
 
-            st.divider() 
+            st.divider()
+
 # =============================
 # WEEKLY REPORT PAGE
 # =============================
@@ -195,7 +185,6 @@ if menu == "Weekly Report":
             st.stop()
 
         docs = db.collection("attendance").stream()
-
         records = []
 
         for doc in docs:
@@ -209,14 +198,12 @@ if menu == "Weekly Report":
             st.warning("No records in selected range.")
             st.stop()
 
-        # ✅ TẠO DATAFRAME Ở ĐÂY
         df = pd.DataFrame(records)
-        # 🔥 FIX TIMEZONE ERROR (Excel không hỗ trợ timezone)
+
+        # 🔥 FIX TIMEZONE ERROR
         if "Timestamp" in df.columns:
             df["Timestamp"] = pd.to_datetime(df["Timestamp"]).dt.tz_localize(None)
-        # =============================
-        # SUMMARY
-        # =============================
+
         summary = df.groupby("Username").agg(
             Total_Records=("Username", "count"),
             Late_Count=("Late Reason", lambda x: (x != "").sum()),
@@ -226,7 +213,6 @@ if menu == "Weekly Report":
         st.subheader("📊 Summary")
 
         for _, row in summary.iterrows():
-
             username = row["Username"]
             total = row["Total_Records"]
             late = row["Late_Count"]
@@ -250,9 +236,7 @@ if menu == "Weekly Report":
                 unsafe_allow_html=True
             )
 
-        # =============================
-        # EXPORT EXCEL
-        # =============================
+        # ===== EXPORT EXCEL =====
         output = BytesIO()
         with pd.ExcelWriter(output, engine="openpyxl") as writer:
             df.to_excel(writer, index=False, sheet_name="Raw Data")
@@ -264,4 +248,3 @@ if menu == "Weekly Report":
             file_name=f"attendance_{start_date}_to_{end_date}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
-    
