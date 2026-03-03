@@ -15,10 +15,9 @@ st.set_page_config(page_title="Attendance System", layout="wide")
 # FIREBASE INIT (KHÔNG STORAGE)
 # =============================
 if not firebase_admin._apps:
-    cred = credentials.Certificate("firebase_key.json")
+    cred = credentials.Certificate(st.secrets["firebase"])
     firebase_admin.initialize_app(cred)
-
-db = firestore.client()
+    db = firestore.client()
 
 # =============================
 # LOGIN
